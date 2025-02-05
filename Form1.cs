@@ -4,61 +4,71 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
 
-namespace ClientApp
+
+namespace ServerApp
 {
-    public partial class ClientForm : Form
+    public partial class ServerForm : Form
     {
         public bool exitStatus = false;
         public const int BYTE_SIZE = 1024;
-        public const string HOST_NAME = "localhost";
         public const int PORT_NUMBER = 8888;
-        // set up a client connection for TCP network service
-        private TcpClient clientSocket;
-        // set up data stream object
+        // listens for and accept incoming connection requests
+        private TcpListener serverListener;
+        // TcpClient is used to connect with the TcpListener object
+        private TcpClient serverSocket;
+        // Set up data stream object
         private NetworkStream netStream;
         // set up thread to run ReceiveStream() method
-        private Thread clientThread = null;
+        private Thread serverThread = null;
         // set up delegate
+        // a delegate is a reference variable to a method
+        // and used for a call back by the delegate object
+        // delegate ref variable is declared in SetText() method below
         delegate void SetTextCallback(string text);
 
 
-        public ClientForm()
+
+
+        public ServerForm()
         {
             InitializeComponent();
 
             // clear all text boxes
-            SystemMsg_TextBox_C.Text = "Error messages appear here ...";
-            Send_TextBox_C.Text = "Enter text here and press send button ...";
+            SystemMsg_TextBox.Text = "Error messages appear here ...";
+            Send_TextBox.Text = "Enter text here and press send button ...";
             Receive_TextBox.Text = "";
-            // start client
-            StartClient();
+            // run server
+            StartServer();
         }
-
-        private void StartClient()
+        private void StartServer()
         {
             try
             {
-                // create TCPClient object
-                clientSocket = new TcpClient(HOST_NAME, PORT_NUMBER);
+                // create listener and start
+                serverListener = new TcpListener(IPAddress.Loopback, PORT_NUMBER);
+                serverListener.Start();
+                // create acceptance socket
+                // this creates a socket connection for the server
+                serverSocket = serverListener.AcceptTcpClient();
                 // create stream
-                netStream = clientSocket.GetStream();
+                netStream = serverSocket.GetStream();
                 // set up thread to run ReceiveStream() method
-                clientThread = new Thread(ReceiveStream);
+                serverThread = new Thread(new ThreadStart(ReceiveStream));
                 // start thread
-                clientThread.Start();
-                Receive_TextBox.Text = "Client started ..." + Environment.NewLine;
+                serverThread.Start();
+                Receive_TextBox.Text = "Server started ..." + Environment.NewLine;
             }
             catch (Exception e)
             {
-
                 // display exception message
-                SystemMsg_TextBox_C.Text = e.StackTrace;
+                SystemMsg_TextBox.Text = e.StackTrace;
             }
         }
 
@@ -73,73 +83,66 @@ namespace ClientApp
                 {
                     int bytesRead = netStream.Read(bytesReceived, 0, bytesReceived.Length);
                     this.SetText(Encoding.ASCII.GetString(bytesReceived, 0, bytesRead));
-
                 }
                 catch (System.IO.IOException)
                 {
-                    Console.WriteLine("Server has exited!");
+                    Console.WriteLine("Client has exited!");
                     exitStatus = true;
                 }
             }
         }
 
-
-        private void SetText(string text)
+        private void SetText (string text)
         {
-            // InvokeRequired compares the thread ID of the
+            // InvokeRequired compares the thread ID of the 
             // calling thread to the thread ID of the creating thread.
-            // if thses threads are different, it returns true.
+            // if these threads are different, it returns true.
             if (this.Receive_TextBox.InvokeRequired)
             {
-                // d is a Delegate reference to the SetText() method
+                // d is a Delegate refernce to the SetText() method
                 SetTextCallback d = new SetTextCallback(SetText);
                 this.Invoke(d, new object[] { text });
             }
             else
             {
-                this.Receive_TextBox.Text += "Server: " + text + Environment.NewLine;
+                
+                this.Receive_TextBox.Text += "Client: " + text + Environment.NewLine;
             }
-
-
-
-
-
-
         }
 
-        private void Send_Button_C_Click(object sender, EventArgs e)
+        private void Send_Button_Click(object sender, EventArgs e)
         {
             // send message in Send_TextBox if any text present
-            if (Send_TextBox_C.Text.Length > 0)
+            if (Send_TextBox.Text.Length > 0)
             {
                 // construct byte array to stream in write mode
-                String strToSend = Send_TextBox_C.Text;
+                String strToSend = Send_TextBox.Text;
                 byte[] bytesToSend = Encoding.ASCII.GetBytes(strToSend);
                 netStream.Write(bytesToSend, 0, bytesToSend.Length);
-                Receive_TextBox.Text += "Client: " + strToSend + Environment.NewLine;
-                Send_TextBox_C.Text = "";
+                Receive_TextBox.Text += "Server: " + strToSend + Environment.NewLine;
+                Send_TextBox.Text = "";
             }
         }
 
-        private void ClientForm_FormClosed(object sender, FormClosedEventArgs e)
+        private void ServerForm_FormClosed(object sender, FormClosedEventArgs e)
         {
             // terminate thread if still running
-            if (clientThread.IsAlive)
+            if (serverThread.IsAlive)
             {
-                Console.WriteLine("Client thread is alive");
-                clientThread.Interrupt();
-                if (clientThread.IsAlive)
+                Console.WriteLine("Server thread is alive");
+                serverThread.Interrupt();
+                if (serverThread.IsAlive)
                 {
-
-                    Console.WriteLine("Client thread is now terminated");
+                    Console.WriteLine("Server thread is now terminated");
                 }
             }
             else
             {
-                Console.WriteLine("Client thread is terminated");
+                Console.WriteLine("Server thread is terminated");
             }
             // close the application for good
             Environment.Exit(0);
+
         }
     }
 }
