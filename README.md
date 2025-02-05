@@ -9,3 +9,5 @@ Refer PG 31 --- Showing on starting multiple projects at once.
 
 Part 4 has guidelines on Threads, and Delegates- in connecting server to clients.
 Which is also required for the Assessment.
+
+With Form1.cs | There is two and will have to keep changing in between ServerApp and ClientApp- In BasicNetworking folder
